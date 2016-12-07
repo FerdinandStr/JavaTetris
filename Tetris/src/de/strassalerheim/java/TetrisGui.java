@@ -5,12 +5,18 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Canvas;
 import java.awt.event.KeyAdapter;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.KeyListener;
 import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.wb.swt.SWTResourceManager;
 import com.sun.glass.events.KeyEvent;
+import com.sun.javafx.scene.layout.region.Margins.Converter;
 import com.sun.xml.internal.ws.api.pipe.Fiber.Listener;
 
 public class TetrisGui {
@@ -25,6 +31,7 @@ public class TetrisGui {
     int[][][] gamefield = new int[sizeY][sizeX][4];//[Y] [X] [Value 0/1|r|g|b]
     int[][][] gamefieldMove = new int[sizeY][sizeX][4];
 
+    Timer timer = new Timer();
     /**
      * Launch the application.
      * 
@@ -81,7 +88,8 @@ public class TetrisGui {
         
         moveStone(st1, 2);
         
-        playStone(st1);
+        boolean newstone = false;
+            playStone(st1);       
         
     }
 
@@ -103,6 +111,7 @@ public class TetrisGui {
             positionY = positionY + sizeField;
         }
     }
+    
 
     public void playStone(Stone stone) {
 
@@ -110,25 +119,26 @@ public class TetrisGui {
 
                 @Override
                 public void keyPressed(org.eclipse.swt.events.KeyEvent p) {
-                    if (p.keyCode == SWT.ARROW_LEFT) {
-                        moveStone(stone, 1);
-                    }
-                    else if (p.keyCode == SWT.ARROW_DOWN) {
-                        moveStone(stone, 2);
-                    }
-                    else if (p.keyCode == SWT.ARROW_RIGHT) {
-                        moveStone(stone, 3);
-                    }
+                    
                 }
 
                 @Override
                 public void keyReleased(org.eclipse.swt.events.KeyEvent r) {
+                    if (r.keyCode == SWT.ARROW_LEFT) {
+                        moveStone(stone, 1);
+                    }
+                    else if (r.keyCode == SWT.ARROW_DOWN) {
+                        moveStone(stone, 2);
+                    }
+                    else if (r.keyCode == SWT.ARROW_RIGHT) {
+                        moveStone(stone, 3);
+                    }
                 }
             });
     }
 
 
-    public void moveStone(Stone stone, int direction){
+    public boolean moveStone(Stone stone, int direction){
         int a = 0;
         int b = 0;
         switch (direction) {
@@ -146,25 +156,57 @@ public class TetrisGui {
                 break;
         }
         
-        //Stein bewegen               X                  Y
-        stone.stone = new int[][] {{stone.stone[0][0]+a, stone.stone[0][1]+b},
-                                {stone.stone[1][0]+a, stone.stone[1][1]+b},
-                                {stone.stone[2][0]+a, stone.stone[2][1]+b},
-                                {stone.stone[3][0]+a, stone.stone[3][1]+b} };
+        int x1 = stone.stone[0][0]+a, y1 = stone.stone[0][1]+b;
+        int x2 = stone.stone[1][0]+a, y2 = stone.stone[1][1]+b;
+        int x3 = stone.stone[2][0]+a, y3 = stone.stone[2][1]+b;
+        int x4 = stone.stone[3][0]+a, y4 = stone.stone[3][1]+b;
         
+        if(x1 < 0 || x2 < 0 ){
+            
+        }
+        
+        //Stein bewegen
+        stone.stone = new int[][] {{x1, y1},
+                                    {x2, y2},
+                                    {x3, y3},
+                                    {x4, y4} };
+
         clearField();
-        drawStone(stone);
-        drawScreen();
+        
+        int returnCode = drawStone(stone);
+        if( returnCode == 0){
+            drawScreen();
+        }
+        else if (returnCode == 2){
+            return true;
+        }
+        return false;
     }
     
-    private void drawStone(Stone st){
+    private int drawStone(Stone st){
         //Stein setzen
-        for(int i = 0; i < st.stone.length; i++){// gamefield [Y] [X] [Value]
-            gamefieldMove[st.stone[i][1]][st.stone[i][0]][0] = 1;  //True = Stone set
-            gamefieldMove[st.stone[i][1]][st.stone[i][0]][1] = 255;  //Red
-            gamefieldMove[st.stone[i][1]][st.stone[i][0]][2] = 0;//Green
-            gamefieldMove[st.stone[i][1]][st.stone[i][0]][3] = 255;//Blue
+        try{
+            for(int i = 0; i < st.stone.length; i++){// gamefield [Y] [X] [Value]
+                
+                gamefieldMove[st.stone[i][1]][st.stone[i][0]][0] = 1;  //True = Stone set
+                gamefieldMove[st.stone[i][1]][st.stone[i][0]][1] = 255;  //Red
+                gamefieldMove[st.stone[i][1]][st.stone[i][0]][2] = 0;//Green
+                gamefieldMove[st.stone[i][1]][st.stone[i][0]][3] = 255;//Blue
+            }
         }
+        catch(ArrayIndexOutOfBoundsException ae){
+            int error = Integer.parseInt(ae.getMessage());
+            
+            if (error == -1 || error == sizeX){//Seitenwand berührt
+                return 1;
+            }
+            else{//Boden berührt
+                return 2;
+            }
+            
+        }
+        return 0;
+        
     }
     
     private void clearField(){
