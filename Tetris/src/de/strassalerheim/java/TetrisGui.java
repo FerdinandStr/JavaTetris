@@ -1,23 +1,12 @@
 package de.strassalerheim.java;
 
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Canvas;
-import java.awt.event.KeyAdapter;
 import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.KeyListener;
-import org.eclipse.swt.graphics.Color;
-import org.eclipse.swt.widgets.Label;
 import org.eclipse.wb.swt.SWTResourceManager;
-import com.sun.glass.events.KeyEvent;
-import com.sun.javafx.scene.layout.region.Margins.Converter;
-import com.sun.xml.internal.ws.api.pipe.Fiber.Listener;
 
 public class TetrisGui {
 
@@ -26,12 +15,15 @@ public class TetrisGui {
     int sizeX = 10;
     int sizeY = 20;
     int sizeField = 15;
+    int[] farbe = {0,0,0};
 
     Canvas[][] screen = new Canvas[sizeY][sizeX];
     int[][][] gamefield = new int[sizeY][sizeX][4];//[Y] [X] [Value 0/1|r|g|b]
     int[][][] gamefieldMove = new int[sizeY][sizeX][4];
 
     Timer timer = new Timer();
+    
+    Stone activeStone;
     /**
      * Launch the application.
      * 
@@ -68,30 +60,62 @@ public class TetrisGui {
     protected void createContents() {
         shell = new Shell();
         shell.setSize(341, 396);
-        shell.setText("SWT Application");
+        shell.setText("Tetris Java");
 
         Canvas canvas = new Canvas(shell, SWT.BORDER);
         canvas.setBounds(245, 101, 64, 64);
         canvas.setBackground(SWTResourceManager.getColor(255,0,0));
 
+        shell.addKeyListener(new KeyListener() {
+            boolean pressed = false;
+            @Override
+            public void keyPressed(org.eclipse.swt.events.KeyEvent p) {
+                if (p.keyCode == SWT.ARROW_LEFT) {
+                    if(pressed == false)
+                        moveStone(activeStone, 1);
+                }
+                else if (p.keyCode == SWT.ARROW_DOWN) {
+                    if(pressed == false)
+                        moveStone(activeStone, 2);
+                }
+                else if (p.keyCode == SWT.ARROW_RIGHT) {
+                    if(pressed == false)
+                        moveStone(activeStone, 3);
+                }
+                pressed = true;
+            }
+
+            @Override
+            public void keyReleased(org.eclipse.swt.events.KeyEvent r) {
+                pressed = false;
+            }
+        });
+        
         createScreen();
 
         gameStart();
     }
 
     public void gameStart() {
-        Stone st1 = new Stone();
-        st1.createStone();
+        activeStone = new Stone();
+        farbe = activeStone.getFarbe();
         
-        drawStone(st1);
+        drawStone(gamefieldMove, activeStone);
         drawScreen();
         
-        moveStone(st1, 2);
+        moveStone(activeStone, 2);
         
-        boolean newstone = false;
-            playStone(st1);       
-        
+        /*timer.schedule(new TimerTask() {
+            
+            @Override
+            public void run() {
+                playStone(stone);
+                
+            }
+        }, arg1);*/
     }
+
+    
 
     public void createScreen() {
         int positionY = sizeField;
@@ -111,32 +135,6 @@ public class TetrisGui {
             positionY = positionY + sizeField;
         }
     }
-    
-
-    public void playStone(Stone stone) {
-
-            shell.addKeyListener(new KeyListener() {
-
-                @Override
-                public void keyPressed(org.eclipse.swt.events.KeyEvent p) {
-                    
-                }
-
-                @Override
-                public void keyReleased(org.eclipse.swt.events.KeyEvent r) {
-                    if (r.keyCode == SWT.ARROW_LEFT) {
-                        moveStone(stone, 1);
-                    }
-                    else if (r.keyCode == SWT.ARROW_DOWN) {
-                        moveStone(stone, 2);
-                    }
-                    else if (r.keyCode == SWT.ARROW_RIGHT) {
-                        moveStone(stone, 3);
-                    }
-                }
-            });
-    }
-
 
     public boolean moveStone(Stone stone, int direction){
         int a = 0;
@@ -156,58 +154,70 @@ public class TetrisGui {
                 break;
         }
         
-        int x1 = stone.stone[0][0]+a, y1 = stone.stone[0][1]+b;
-        int x2 = stone.stone[1][0]+a, y2 = stone.stone[1][1]+b;
-        int x3 = stone.stone[2][0]+a, y3 = stone.stone[2][1]+b;
-        int x4 = stone.stone[3][0]+a, y4 = stone.stone[3][1]+b;
+        int x1 = stone.stoneCoords[0][0]+a, y1 = stone.stoneCoords[0][1]+b;
+        int x2 = stone.stoneCoords[1][0]+a, y2 = stone.stoneCoords[1][1]+b;
+        int x3 = stone.stoneCoords[2][0]+a, y3 = stone.stoneCoords[2][1]+b;
+        int x4 = stone.stoneCoords[3][0]+a, y4 = stone.stoneCoords[3][1]+b;
         
-        if(x1 < 0 || x2 < 0 ){
-            
+        //keine bewegung wenn außerhalb spielfeld
+        if(x1 < 0 || x2 < 0 || x3 < 0 || x4 < 0 || x1 == sizeX || x2 == sizeX || x3 == sizeX || x4 == sizeX){
+            return false;
         }
-        
-        //Stein bewegen
-        stone.stone = new int[][] {{x1, y1},
-                                    {x2, y2},
-                                    {x3, y3},
-                                    {x4, y4} };
+        else if(y1 == sizeY || y2 == sizeY || y3 == sizeY || y4 == sizeY){
+            drawStone(gamefield, stone);
+            clearField();
+            activeStone = new Stone();
+            farbe = activeStone.getFarbe();
+        }
+        else{
+          //Stein bewegen
+            stone.stoneCoords = new int[][] {{x1, y1},
+                                        {x2, y2},
+                                        {x3, y3},
+                                        {x4, y4} };
+            drawStone(gamefieldMove, stone);
+        }
 
-        clearField();
-        
-        int returnCode = drawStone(stone);
-        if( returnCode == 0){
-            drawScreen();
-        }
-        else if (returnCode == 2){
-            return true;
-        }
-        return false;
+//        if( returnCode == 0){
+//            drawScreen();
+//        }
+//        else if (returnCode == 2){
+//            drawStone(gamefield, stone);
+//            activeStone = new Stone();
+//            return true;
+//        }
+          return false;
     }
     
-    private int drawStone(Stone st){
+    private void drawStone(int[][][] gameField, Stone st){
+        clearField();
+        
         //Stein setzen
         try{
-            for(int i = 0; i < st.stone.length; i++){// gamefield [Y] [X] [Value]
+            for(int i = 0; i < st.stoneCoords.length; i++){// gamefield [Y] [X] [Value]
                 
-                gamefieldMove[st.stone[i][1]][st.stone[i][0]][0] = 1;  //True = Stone set
-                gamefieldMove[st.stone[i][1]][st.stone[i][0]][1] = 255;  //Red
-                gamefieldMove[st.stone[i][1]][st.stone[i][0]][2] = 0;//Green
-                gamefieldMove[st.stone[i][1]][st.stone[i][0]][3] = 255;//Blue
+                gameField[st.stoneCoords[i][1]][st.stoneCoords[i][0]][0] = 1;  //True = Stone set
+                gameField[st.stoneCoords[i][1]][st.stoneCoords[i][0]][1] = farbe[0];  //Red
+                gameField[st.stoneCoords[i][1]][st.stoneCoords[i][0]][2] = farbe[1];//Green
+                gameField[st.stoneCoords[i][1]][st.stoneCoords[i][0]][3] = farbe[2];//Blue
             }
         }
         catch(ArrayIndexOutOfBoundsException ae){
             int error = Integer.parseInt(ae.getMessage());
             
             if (error == -1 || error == sizeX){//Seitenwand berührt
-                return 1;
+                //return 1;
             }
             else{//Boden berührt
-                return 2;
+                //return 2;
             }
             
         }
-        return 0;
+        //return 0;
         
+        drawScreen();
     }
+    
     
     private void clearField(){
         //MoveArray zurücksetzten auf Hintergrund
@@ -221,7 +231,8 @@ public class TetrisGui {
         }
     }
     
-    public void drawScreen(){
+    public void drawScreen(){    
+        
         for(int y = 0; y < sizeY; y++){
             for(int x = 0; x < sizeX; x++){
                 screen[y][x].setBackground(SWTResourceManager.getColor(gamefield[y][x][1],gamefield[y][x][2],gamefield[y][x][3]));
